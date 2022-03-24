@@ -15,8 +15,9 @@ public class App {
         printNews.setTitle(doc.title());
 
             try {
-               Element text = doc.getElementsByClass("content-box").first().child(1);
-               printNews.setText(text.text());
+               Elements text = doc.select("div.content-box > p");
+               Elements text_2 = doc.select("div.article > p");
+               printNews.setText(text.text()+ text_2.text());
                 Element authorElement = doc.getElementsByClass("name").first().child(0);
                 printNews.setAuthor(authorElement.text());
 
