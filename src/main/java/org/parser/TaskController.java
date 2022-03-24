@@ -29,7 +29,6 @@ public class TaskController {
                     if (entity != null) {
                         try {
                             doc = Jsoup.connect(url).get();
-                           // System.out.println(doc);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
