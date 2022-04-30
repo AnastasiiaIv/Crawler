@@ -1,8 +1,12 @@
 package org.parser;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+
+import java.io.IOException;
+import java.io.StringWriter;
 
 
 public class App {
@@ -43,7 +47,17 @@ public class App {
                 }
                 printNews.setText("Текст публикации не определился");
             }
-            printNews.toPrint();
 
+
+        StringWriter writer = new StringWriter();
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            mapper.writeValue(writer,printNews);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        String result = writer.toString();
+        System.out.println(result);
+
+    }
     }

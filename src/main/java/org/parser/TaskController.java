@@ -24,7 +24,7 @@ public class TaskController {
                 StatusLine statusline = response.getStatusLine();
                 System.out.println(statusline.getStatusCode() + " " + statusline.getReasonPhrase());
                 if (statusline.getStatusCode() == 200) {
-                    System.out.println("Status " + statusline.getStatusCode() + " OK");
+                    System.out.println("Status " + statusline.getStatusCode() + " OK " + Thread.currentThread().getName() );
                     HttpEntity entity = response.getEntity();
                     if (entity != null) {
                         try {

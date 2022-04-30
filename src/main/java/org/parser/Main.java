@@ -3,9 +3,14 @@ package org.parser;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-
 import java.io.IOException;
-import java.util.LinkedList;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeoutException;
+
 
 
 
@@ -14,6 +19,22 @@ public class Main {
     private static TaskController taskController;
     private static App app;
 
+
+    static void SendMsg(String link) {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost("localhost");
+        factory.setUsername("rabbitmq");
+        factory.setPassword("rabbitmq");
+        factory.setPort(5672);
+        try (Connection connection = factory.newConnection(); Channel channel = connection.createChannel()) {
+            channel.queueDeclare("QUEUE_LINKS", false, false, true, null);
+            channel.basicPublish("", "QUEUE_LINKS", null, link.getBytes(StandardCharsets.UTF_8));
+            channel.close();
+            connection.close();
+        } catch (Exception e) {
+            return;
+        }
+    }
 
     public static void main(String[] args) throws Exception {
 
@@ -65,50 +86,53 @@ public class Main {
     }
 
     public static class ProducerConsumer {
-        int capacity = 5;
-        public static LinkedList<String> linkedlist = new LinkedList<>();
-        public static LinkedList<String> stringlink = new LinkedList<>();
-        // Function called by producer thread
+
         public void produce(Document doc) throws InterruptedException {
             Elements links = doc.getElementsByAttributeValue("itemprop", "url");
             for(Element i : links){
-                stringlink.add(i.attr("href"));
+             //   stringlink.add(i.attr("href"));
+                SendMsg(i.attr("href"));
             }
-            int index = 0;
-            System.out.println("Работа " + Thread.currentThread().getName());
-            while (true) {
-                synchronized (this) {
-                    while (linkedlist.size() == capacity)
-                        wait();
-                    linkedlist.add(stringlink.get(index));
-                    index++;
-                    notify();
-                    Thread.sleep(1000);
-                }
-            }
+
         }
+
 
             public void consume() throws InterruptedException, IOException {
             {
-                while (true) {
-                    synchronized (this) {
-                        // consumer thread waits while list
-                        // is empty
-                        while (linkedlist.size() == 0)
-                            wait();
-                        String childLink = linkedlist.removeFirst();
-                        //String convertLink = childLink.toString();
-                        Document newDoc = taskController.GetUrl(childLink);
-                        System.out.println("Работа " + Thread.currentThread().getName());
-                        app.ParseNews(newDoc, childLink);
-                        notify();
+                try {
+                    ConnectionFactory factory = new ConnectionFactory();
+                    factory.setHost("localhost");
+                    factory.setUsername("rabbitmq");
+                    factory.setPassword("rabbitmq");
+                    factory.setPort(5672);
+                    Connection connection = factory.newConnection();
+                    Channel channel = connection.createChannel();
 
-                        // and sleep
-                        Thread.sleep(1000);
-                    }
+                    channel.queueDeclare("QUEUE_LINKS", false, false, true, null);
+                    DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+                        String message = new String(delivery.getBody(), "UTF-8");
+                        try {
+                            String childlink = message;
+                            Document newDoc = taskController.GetUrl(childlink);
+                            app.ParseNews(newDoc, childlink);
+                        } catch (Exception e) {
+                            System.out.println(" error downloading page " + e.toString());
+                        } finally {
+                            channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                        }
+
+                    };
+                    channel.basicConsume("QUEUE_LINKS", false, deliverCallback, consumerTag -> { });
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (TimeoutException e) {
+                    e.printStackTrace();
                 }
+            }
+
+
             }
         }
     }
-}
+
 
